@@ -1,0 +1,55 @@
+pipeline {
+    agent any
+    options { timestamps(); disableConcurrentBuilds() }
+
+    environment {
+        IMAGE_NAME = 'vimlesh-portfolio'
+        CONTAINER_NAME = 'vimlesh-portfolio'
+        DEPLOY_HOST = 'YOUR_SERVER_PUBLIC_IP'
+        DEPLOY_USER = 'ubuntu'
+        DEPLOY_DIR = '/home/ubuntu/portfolio'
+        SSH_CREDENTIALS_ID = 'portfolio-deploy-ssh'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+        stage('Validate') {
+            steps {
+                sh '''
+                    set -eu
+                    test -s index.html
+                    test -s styles.css
+                    test -s script.js
+                    test -s Dockerfile
+                    echo "Portfolio files validated."
+                '''
+            }
+        }
+        stage('Build Docker Image') {
+            steps { sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .' }
+        }
+        stage('Deploy to Linux Server') {
+            steps {
+                sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+                    sh '''
+                        set -eu
+                        if [ "$DEPLOY_HOST" = "YOUR_SERVER_PUBLIC_IP" ] || [ -z "$DEPLOY_HOST" ]; then
+                          echo "Set DEPLOY_HOST in Jenkinsfile before deploying."
+                          exit 1
+                        fi
+                        ssh -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_DIR'"
+                        rsync -az --delete --exclude='.git' ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_DIR/"
+                        ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd '$DEPLOY_DIR' && docker build -t '$IMAGE_NAME:$BUILD_NUMBER' . && (docker rm -f '$CONTAINER_NAME' >/dev/null 2>&1 || true) && docker run -d --restart unless-stopped --name '$CONTAINER_NAME' -p 80:80 '$IMAGE_NAME:$BUILD_NUMBER'"
+                        echo "Deployment commands completed."
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        success { echo 'Portfolio pipeline completed successfully.' }
+        failure { echo 'Pipeline failed. Check Console Output and server connectivity.' }
+    }
+}
