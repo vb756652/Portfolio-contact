@@ -7,19 +7,19 @@ Responsive static portfolio website with a Jenkins pipeline to build a Docker im
 Open `index.html` in a browser, or run:
 
 ```bash
-python3 -m http.server 8080
+python3 -m http.server 8082
 ```
 
-Visit `http://localhost:8080`.
+Visit `http://localhost:8082`.
 
 ## Test with Docker
 
 ```bash
 docker build -t vimlesh-portfolio:local .
-docker run --rm -p 8080:80 vimlesh-portfolio:local
+docker run --rm -p 8082:80 vimlesh-portfolio:local
 ```
 
-Visit `http://localhost:8080`.
+Visit `http://localhost:8082`.
 
 ## Jenkins deployment prerequisites
 
